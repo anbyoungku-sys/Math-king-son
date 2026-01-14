@@ -1,172 +1,260 @@
 import streamlit as st
 import random
+import time
 
-# --- 1. 화면 설정 (공룡 테마) ---
-st.set_page_config(page_title="🦖씩씩한 7살 수학 대장", page_icon="🦖")
+# --- 페이지 기본 설정 ---
+st.set_page_config(page_title="수학 놀이터", page_icon="🎮", layout="wide")
 
-# --- 2. 변수 초기화 (점수, 현재 문제 등 저장) ---
+# --- 세션 상태 초기화 (점수, 문제 등을 저장하기 위함) ---
+if 'page' not in st.session_state:
+    st.session_state.page = "home"
 if 'score' not in st.session_state:
     st.session_state.score = 0
-if 'current_mode' not in st.session_state:
-    st.session_state.current_mode = "더하기 (쉬움)" # 기본값
+if 'enemy_score' not in st.session_state:
+    st.session_state.enemy_score = 0
 if 'num1' not in st.session_state:
-    st.session_state.num1 = 1
+    st.session_state.num1 = 0
 if 'num2' not in st.session_state:
-    st.session_state.num2 = 1
-if 'op_symbol' not in st.session_state:
-    st.session_state.op_symbol = '+'
-if 'real_answer' not in st.session_state:
-    st.session_state.real_answer = 2
-if 'problem_solved' not in st.session_state:
-    st.session_state.problem_solved = False
+    st.session_state.num2 = 0
+if 'problem_type' not in st.session_state:
+    st.session_state.problem_type = "+" # +, -, *
 
-# --- 3. 문제 생성 함수 (핵심 로직) ---
-def generate_problem(mode):
-    st.session_state.current_mode = mode
-    st.session_state.problem_solved = False # 문제 풀기 상태로 변경
-
-    # 1) 더하기
-    if mode == "더하기 (쉬움)":
-        st.session_state.num1 = random.randint(1, 9)
-        st.session_state.num2 = random.randint(1, 9)
-        st.session_state.op_symbol = '+'
-        st.session_state.real_answer = st.session_state.num1 + st.session_state.num2
-
-    elif mode == "더하기 (도전)":
+# --- 문제 생성 함수 ---
+def generate_problem(type="+"):
+    if type == "+": # 십의 자리 + 일의 자리
         st.session_state.num1 = random.randint(10, 50)
-        st.session_state.num2 = random.randint(10, 50)
-        st.session_state.op_symbol = '+'
-        st.session_state.real_answer = st.session_state.num1 + st.session_state.num2
-
-    # 2) 빼기 (음수 안 나오게 처리)
-    elif mode == "빼기 (쉬움)":
-        n1 = random.randint(2, 9)
-        n2 = random.randint(1, n1) # n1보다 작거나 같은 수
-        st.session_state.num1 = n1
-        st.session_state.num2 = n2
-        st.session_state.op_symbol = '-'
-        st.session_state.real_answer = n1 - n2
-
-    elif mode == "빼기 (도전)":
-        n1 = random.randint(20, 99)
-        n2 = random.randint(10, n1)
-        st.session_state.num1 = n1
-        st.session_state.num2 = n2
-        st.session_state.op_symbol = '-'
-        st.session_state.real_answer = n1 - n2
-
-    # 3) 곱하기 (구구단)
-    elif mode == "곱하기 (쉬움)":
-        st.session_state.num1 = random.randint(2, 5) # 2~5단
         st.session_state.num2 = random.randint(1, 9)
-        st.session_state.op_symbol = 'x'
-        st.session_state.real_answer = st.session_state.num1 * st.session_state.num2
-
-    elif mode == "곱하기 (도전)":
-        st.session_state.num1 = random.randint(6, 9) # 6~9단
+    elif type == "-": # 십의 자리 - 일의 자리 (결과가 양수)
+        st.session_state.num1 = random.randint(20, 90)
         st.session_state.num2 = random.randint(1, 9)
-        st.session_state.op_symbol = 'x'
-        st.session_state.real_answer = st.session_state.num1 * st.session_state.num2
+    elif type == "*": # 구구단 (일의 자리)
+        st.session_state.num1 = random.randint(2, 9)
+        st.session_state.num2 = random.randint(1, 9)
+    st.session_state.problem_type = type
 
-    # 4) 나누기 (나머지 없이 딱 떨어지게 만들기)
-    elif mode == "나누기 (쉬움)":
-        # 정답(몫)을 먼저 정하고 역산
-        answer = random.randint(2, 5)
-        divisor = random.randint(2, 5)
-        dividend = answer * divisor # 나누어지는 수
+# --- 사이드바 메뉴 ---
+with st.sidebar:
+    st.header("🎮 놀이 선택")
+    selected_game = st.radio(
+        "어떤 놀이를 할까요?",
+        ("🏠 홈 화면", "1. 🤖 로봇 조립 공장", "2. 🐞 곤충 채집 모험", "3. 🏎️ 로봇 vs 사슴벌레", "4. 🔋 로봇 에너지 충전")
+    )
+    
+    # 게임을 바꿀 때 점수 초기화 로직
+    if selected_game != st.session_state.get('current_view', '🏠 홈 화면'):
+        st.session_state.score = 0
+        st.session_state.enemy_score = 0
+        generate_problem("+")
+        st.session_state.current_view = selected_game
+        st.rerun()
 
-        st.session_state.num1 = dividend
-        st.session_state.num2 = divisor
-        st.session_state.op_symbol = '÷'
-        st.session_state.real_answer = answer
+# ==========================================
+# 🏠 홈 화면
+# ==========================================
+if selected_game == "🏠 홈 화면":
+    st.title("수학 탐험대 본부 🚀")
+    st.write("### 안녕! 나는 너의 수학 파트너야.")
+    st.write("왼쪽 메뉴에서 하고 싶은 놀이를 골라봐!")
+    st.image("https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Z6eXF6eXF6eXF6eXF6eXF6eXF6eXF6eXF6eXF6eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LdOojqaw8duG8/giphy.gif", caption="준비됐니?", width=300)
 
-    elif mode == "나누기 (도전)":
-        answer = random.randint(2, 9)
-        divisor = random.randint(2, 9)
-        dividend = answer * divisor
+# ==========================================
+# 1. 🤖 로봇 조립 공장 (덧셈)
+# ==========================================
+elif selected_game == "1. 🤖 로봇 조립 공장":
+    st.title("🤖 나만의 슈퍼 로봇 만들기")
+    st.markdown("**문제를 맞춰서 로봇 부품을 모으자! (총 4단계)**")
 
-        st.session_state.num1 = dividend
-        st.session_state.num2 = divisor
-        st.session_state.op_symbol = '÷'
-        st.session_state.real_answer = answer
+    # 로봇 상태 시각화
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.metric(label="현재 부품 수", value=f"{st.session_state.score} / 4")
+    
+    with col2:
+        if st.session_state.score == 0:
+            st.info("시작하려면 문제를 풀어봐!")
+        elif st.session_state.score == 1:
+            st.warning("머리 장착 완료! 🤖")
+        elif st.session_state.score == 2:
+            st.warning("몸통 연결 완료! 🤖👕")
+        elif st.session_state.score == 3:
+            st.warning("다리 연결 완료! 🤖👕👖")
+        elif st.session_state.score >= 4:
+            st.success("슈퍼 로봇 완성! 출동 준비! 🤖👕👖⚔️")
+            st.balloons()
+            if st.button("새 로봇 만들기"):
+                st.session_state.score = 0
+                st.rerun()
 
+    if st.session_state.score < 4:
+        st.divider()
+        st.subheader(f"문제: {st.session_state.num1} + {st.session_state.num2} = ?")
+        
+        with st.form("game1_form"):
+            answer = st.number_input("정답 입력", min_value=0, step=1)
+            submitted = st.form_submit_button("부품 조립하기")
+            
+            if submitted:
+                if answer == st.session_state.num1 + st.session_state.num2:
+                    st.success("정답! 띠링~ 부품 획득!")
+                    st.session_state.score += 1
+                    generate_problem("+")
+                    time.sleep(1) # 잠시 대기 후
+                    st.rerun()    # 화면 갱신
+                else:
+                    st.error("앗! 나사가 헐거워요. 다시 계산해볼까?")
 
-# --- 4. UI 구성 ---
-st.title("🦖 씩씩한 7살 수학 대장")
-st.markdown(f"### 현재 도전 중: :blue[{st.session_state.current_mode}]")
-st.write("문제를 고르면 새로운 문제가 나와요!")
+# ==========================================
+# 2. 🐞 곤충 채집 모험 (뺄셈)
+# ==========================================
+elif selected_game == "2. 🐞 곤충 채집 모험":
+    st.title("🐞 희귀 곤충을 잡아라!")
+    st.markdown("**뺄셈 공격으로 곤충의 체력을 0으로 만들자!**")
+    
+    # 곤충 체력 설정 (기본 100, 한 문제당 25 데미지)
+    max_hp = 100
+    current_hp = max_hp - (st.session_state.score * 25)
+    
+    if current_hp < 0: current_hp = 0
 
-# --- 2행 4열 버튼 배치 ---
-# 첫 번째 줄: 더하기 / 빼기
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    if st.button("➕ 더하기\n(쉬움)", use_container_width=True):
-        generate_problem("더하기 (쉬움)")
-with col2:
-    if st.button("🔥 더하기\n(도전)", use_container_width=True):
-        generate_problem("더하기 (도전)")
-with col3:
-    if st.button("➖ 빼기\n(쉬움)", use_container_width=True):
-        generate_problem("빼기 (쉬움)")
-with col4:
-    if st.button("🔥 빼기\n(도전)", use_container_width=True):
-        generate_problem("빼기 (도전)")
+    st.write(f"### 야생의 장수풍뎅이 체력: {current_hp}")
+    st.progress(current_hp / max_hp)
 
-# 두 번째 줄: 곱하기 / 나누기
-col5, col6, col7, col8 = st.columns(4)
-with col5:
-    if st.button("✖️ 곱하기\n(쉬움)", use_container_width=True):
-        generate_problem("곱하기 (쉬움)")
-with col6:
-    if st.button("🔥 곱하기\n(도전)", use_container_width=True):
-        generate_problem("곱하기 (도전)")
-with col7:
-    if st.button("➗ 나누기\n(쉬움)", use_container_width=True):
-        generate_problem("나누기 (쉬움)")
-with col8:
-    if st.button("🔥 나누기\n(도전)", use_container_width=True):
-        generate_problem("나누기 (도전)")
+    if current_hp == 0:
+        st.success("🎉 채집 성공! 장수풍뎅이를 잡았다!")
+        st.image("https://emojigraph.org/media/apple/beetle_1fab2.png", width=100)
+        st.balloons()
+        if st.button("다른 곤충 찾으러 가기"):
+            st.session_state.score = 0
+            st.rerun()
+    else:
+        st.divider()
+        # 문제 타입이 -가 아니면 변경
+        if st.session_state.problem_type != "-":
+            generate_problem("-")
+            
+        st.subheader(f"공격 준비: {st.session_state.num1} - {st.session_state.num2} = ?")
+        
+        with st.form("game2_form"):
+            answer = st.number_input("정답 입력", min_value=0, step=1)
+            submitted = st.form_submit_button("잠자리채 휘두르기! 🕸️")
+            
+            if submitted:
+                if answer == st.session_state.num1 - st.session_state.num2:
+                    st.success("공격 성공! 곤충이 약해졌어!")
+                    st.session_state.score += 1
+                    generate_problem("-")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("빗나갔다! 곤충이 너무 빨라!")
 
-st.divider()
+# ==========================================
+# 3. 🏎️ 로봇 vs 사슴벌레 (혼합 연산 - 달리기)
+# ==========================================
+elif selected_game == "3. 🏎️ 로봇 vs 사슴벌레":
+    st.title("🏎️ 숲속 레이싱 대회")
+    st.markdown("**누가 먼저 5점에 도착할까?**")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write("🤖 **나의 로봇**")
+        st.progress(min(st.session_state.score * 20, 100))
+    with col2:
+        st.write("🦌 **라이벌 사슴벌레**")
+        st.progress(min(st.session_state.enemy_score * 20, 100))
 
-# --- 5. 문제 표시 화면 ---
-# 숫자를 아주 크게 보여주기 위해 header 사용
-c1, c2, c3, c4, c5 = st.columns([1.5, 1, 1.5, 1, 1.5])
-with c1:
-    st.header(st.session_state.num1)
-with c2:
-    st.header(st.session_state.op_symbol)
-with c3:
-    st.header(st.session_state.num2)
-with c4:
-    st.header("=")
-with c5:
-    st.header("❓")
+    # 승리 조건 체크
+    if st.session_state.score >= 5:
+        st.success("🏆 우승!! 로봇이 더 빨랐어!")
+        st.balloons()
+        if st.button("재경기 하기"):
+            st.session_state.score = 0
+            st.session_state.enemy_score = 0
+            st.rerun()
+    elif st.session_state.enemy_score >= 5:
+        st.error("아쉽다.. 사슴벌레가 이겼어 ㅠㅠ")
+        if st.button("다시 도전!"):
+            st.session_state.score = 0
+            st.session_state.enemy_score = 0
+            st.rerun()
+    else:
+        st.divider()
+        # 랜덤 연산
+        if st.session_state.problem_type not in ["+", "-"]:
+             generate_problem("+")
 
-st.write("") # 여백
+        op_symbol = st.session_state.problem_type
+        st.subheader(f"부스터 발동: {st.session_state.num1} {op_symbol} {st.session_state.num2} = ?")
 
-# --- 6. 정답 입력 및 확인 ---
-# 폼(Form)을 사용하면 엔터키로 제출이 가능해서 편합니다.
-with st.form("answer_form"):
-    user_input = st.number_input("정답은 무엇일까요?", min_value=0, step=1)
-    submit_btn = st.form_submit_button("🚀 정답 확인!")
+        with st.form("game3_form"):
+            answer = st.number_input("정답 입력", min_value=0, step=1)
+            submitted = st.form_submit_button("가속!")
+            
+            if submitted:
+                real_answer = 0
+                if op_symbol == "+": real_answer = st.session_state.num1 + st.session_state.num2
+                else: real_answer = st.session_state.num1 - st.session_state.num2
+                
+                if answer == real_answer:
+                    st.success("부스터 작동! 슈웅~")
+                    st.session_state.score += 1
+                    # 사슴벌레도 랜덤하게 이동 (50% 확률)
+                    if random.choice([True, False]):
+                        st.session_state.enemy_score += 1
+                        st.warning("사슴벌레도 쫓아오고 있어!")
+                else:
+                    st.error("미끄러졌다! 사슴벌레가 앞서갑니다!")
+                    st.session_state.enemy_score += 1
+                
+                # 다음 문제 랜덤 생성
+                generate_problem(random.choice(["+", "-"]))
+                time.sleep(1)
+                st.rerun()
 
-    if submit_btn:
-        if user_input == st.session_state.real_answer:
-            if not st.session_state.problem_solved: # 중복 점수 방지
-                st.balloons()
-                st.success("딩동댕! 정답입니다! 참 잘했어요! 🎉")
-                st.session_state.score += 10
-                st.session_state.problem_solved = True # 문제 해결됨 표시
-            else:
-                st.info("이미 맞춘 문제입니다. 위에서 새로운 문제를 골라보세요!")
-        else:
-            st.error("땡! 다시 한번 생각해볼까요? 할 수 있어요! 🔥")
+# ==========================================
+# 4. 🔋 로봇 에너지 충전 (곱셈)
+# ==========================================
+elif selected_game == "4. 🔋 로봇 에너지 충전":
+    st.title("🔋 배고픈 로봇 밥 주기")
+    st.markdown("**구구단을 외워서 로봇 배터리를 100%로 만들자!**")
+    
+    # 배터리 (문제당 20% 충전)
+    battery = st.session_state.score * 20
+    if battery > 100: battery = 100
+    
+    st.metric("현재 에너지", f"{battery}%")
+    
+    # 배터리 상태 이모지
+    if battery < 40:
+        st.write("로봇 상태: 😵 (배고파요..)")
+    elif battery < 80:
+        st.write("로봇 상태: 🙂 (조금만 더!)")
+    else:
+        st.write("로봇 상태: ⚡🤖⚡ (파워 풀!!)")
 
-# --- 7. 점수판 ---
-st.divider()
-st.metric(label="🏆 내가 모은 공룡 알 점수", value=f"{st.session_state.score} 점")
-
-# 칭찬 메시지 로직
-if st.session_state.score > 0 and st.session_state.score % 50 == 0:
-    st.info("와우! 50점 달성! 오늘은 치킨 먹는 날? 🍗")
+    if battery >= 100:
+        st.success("에너지 충전 완료! 로봇이 춤을 춥니다!")
+        st.video("https://www.youtube.com/watch?v=317jz-PUxBg") # 로봇 춤 영상 예시
+        if st.button("다시 충전하기"):
+            st.session_state.score = 0
+            st.rerun()
+    else:
+        st.divider()
+        if st.session_state.problem_type != "*":
+            generate_problem("*")
+            
+        st.subheader(f"에너지 캡슐: {st.session_state.num1} x {st.session_state.num2} = ?")
+        
+        with st.form("game4_form"):
+            answer = st.number_input("정답 입력", min_value=0, step=1)
+            submitted = st.form_submit_button("에너지 주입!")
+            
+            if submitted:
+                if answer == st.session_state.num1 * st.session_state.num2:
+                    st.success("냠냠! 맛있는 숫자다!")
+                    st.session_state.score += 1
+                    generate_problem("*")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("퉤! 맛없는 오답이야!")
